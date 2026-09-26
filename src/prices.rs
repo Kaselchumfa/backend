@@ -25,6 +25,14 @@ pub fn tick_once(state: &AppState) -> String {
     };
     let vols = state.vol_surface.lock().unwrap().clone();
 
+    // Bump the surface version so the surface/term-structure/skew caches
+    // (keyed by `(underlying, surface_version)`) are invalidated on every
+    // tick, as required by issue #14.
+    {
+        let mut version = state.surface_version.lock().unwrap();
+        *version = version.wrapping_add(1);
+    }
+
     let payload = serde_json::json!({ "prices": prices, "vols": vols }).to_string();
     let _ = state.spot_tx.send(payload.clone());
     payload
@@ -163,6 +171,20 @@ mod tests {
                 "{underlying}: broadcast {broadcast_price} vs live {live_price}"
             );
         }
+
+        state.db.close().await;
+        let _ = std::fs::remove_file(&db_path);
+    }
+
+    #[tokio::test]
+    async fn tick_once_bumps_the_surface_version() {
+        let (state, db_path) = test_state().await;
+        let before = *state.surface_version.lock().unwrap();
+
+        tick_once(&state);
+
+        let after = *state.surface_version.lock().unwrap();
+        assert_eq!(after, before.wrapping_add(1));
 
         state.db.close().await;
         let _ = std::fs::remove_file(&db_path);
