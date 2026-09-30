@@ -69,6 +69,12 @@ the nightly workflow raises that via `PROPTEST_CASES`. Failing inputs
 shrink to a minimal sequence and are persisted under
 `proptest-regressions/`.
 
+The fund-critical math (collateral, payoff, fees) is additionally
+model-checked with [Kani](https://model-checking.github.io/kani/) over the
+integer-scaled prototypes in `math_fixed.rs` — see `docs/verification.md`
+for the property list, the `cargo kani` command, and the documented `f64`
+gap. `.github/workflows/kani.yml` runs it on every PR and nightly.
+
 
 ## Endpoints
 
@@ -164,6 +170,8 @@ src/
 ├── payoff.rs         # Combined multi-leg P&L math (ported from the frontend's lib/payoff.ts)
 ├── secrets/           # SecretProvider (env/SOPS/Vault), SecretStore, HMAC key rings, SigV4
 ├── signing.rs         # Signer trait + local / Vault Transit / AWS KMS ed25519 signers
+├── math_fixed.rs     # Integer-scaled prototypes of collateral/payoff/fee math (Kani-verified)
+├── kani_proofs.rs    # Kani harnesses for math_fixed, compiled only under `cargo kani`
 ├── positions.rs      # Account/position/roll/greeks handlers + the open/close tx helpers
 ├── strategies.rs     # Multi-leg atomic execution, built on positions.rs's tx helpers
 ├── history.rs         # Closed/rolled positions + stats
