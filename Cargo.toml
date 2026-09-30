@@ -35,11 +35,16 @@ rand = "0.8"
 sha2 = "0.10"
 hex = "0.4"
 tower_governor = "0.4"
+regex = "1.13.1"
+sha2 = "0.11.0"
+opentelemetry = { version = "0.33.0", features = ["trace"], default-features = false }
+opentelemetry_sdk = { version = "0.33.0", features = ["rt-tokio", "trace"], default-features = false }
+opentelemetry-otlp = { version = "0.33.0", features = ["trace", "grpc-tonic"], default-features = false }
+tracing-opentelemetry = { version = "0.34.0", default-features = false }
 utoipa = { version = "5", features = ["axum_extras", "time"] }
 utoipa-swagger-ui = { version = "8", features = ["axum"] }
 time = { version = "0.3", features = ["serde", "formatting", "parsing"] }
 validator = { version = "0.18", features = ["derive"] }
-sha2 = "0.10"
 hmac = "0.12"
 chrono = "0.4"
 async-trait = "0.1"
