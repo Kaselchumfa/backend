@@ -12,6 +12,10 @@ env:
 permissions:
   contents: read
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -46,10 +50,18 @@ jobs:
         run: cargo xtask codegen --check
 
   sqlx-prepare:
+
+  test:
+    name: Tests (shard ${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@nextest
       - uses: Swatinem/rust-cache@v2
       # sqlx-cli must match the sqlx version in Cargo.toml (0.8.x) so the
       # offline metadata it generates is byte-identical to what the macros
@@ -62,6 +74,55 @@ jobs:
         run: DATABASE_URL=sqlite://ci-prepare.db sqlx migrate run
       - name: Check offline query metadata is up to date
         run: DATABASE_URL=sqlite://ci-prepare.db cargo sqlx prepare --check
+      - name: Run isolated tests
+        run: cargo nextest run --workspace --all-targets --profile ci --partition count:${{ matrix.shard }}/4
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: junit-${{ matrix.shard }}
+          path: target/nextest/ci/junit.xml
+          if-no-files-found: ignore
+          retention-days: 7
+
+  coverage:
+    name: Coverage thresholds and diff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: Swatinem/rust-cache@v2
+      - name: Measure PR coverage
+        run: cargo llvm-cov --workspace --all-targets --json --output-path coverage.json
+      - name: Measure base coverage
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git worktree add --detach /tmp/backendd-base "$BASE_SHA"
+          CARGO_TARGET_DIR="$GITHUB_WORKSPACE/target" \
+            cargo llvm-cov --manifest-path /tmp/backendd-base/Cargo.toml \
+              --workspace --all-targets --json \
+              --output-path "$GITHUB_WORKSPACE/base-coverage.json"
+      - name: Enforce module budgets and prepare report
+        id: report
+        run: |
+          if [ -f base-coverage.json ]; then
+            python3 scripts/coverage_report.py coverage.json --base base-coverage.json --comment coverage-comment.md
+          else
+            python3 scripts/coverage_report.py coverage.json --comment coverage-comment.md
+          fi
+      - name: Comment coverage diff
+        if: always() && steps.report.outcome != 'skipped' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python3 scripts/post_coverage_comment.py coverage-comment.md
 
   clippy:
     runs-on: ubuntu-latest
