@@ -17,6 +17,7 @@ path = "src/admin.rs"
 
 [dependencies]
 axum = { version = "0.7", features = ["ws"] }
+async-graphql = { version = "=7.2.1", features = ["dataloader"] }
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.5", features = ["cors", "trace", "request-id", "compression-gzip", "compression-br", "compression-zstd"] }
 serde = { version = "1", features = ["derive"] }
