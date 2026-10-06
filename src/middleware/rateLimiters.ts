@@ -1,0 +1,53 @@
+import {
+  createIpRateLimiter,
+  createWalletRateLimiter,
+  createPublisherRateLimiter,
+  extractPayerFromPaymentHeader,
+} from "../middleware/rateLimit.js";
+import { config } from "../config.js";
+import { getRateLimitStore } from "../lib/rateLimit/index.js";
+import type { RequestHandler } from "express";
+
+const store = getRateLimitStore();
+
+export const verifyIpRateLimit: RequestHandler = createIpRateLimiter(
+  store,
+  "verify",
+  config.RATE_LIMIT_VERIFY_IP_MAX,
+  config.RATE_LIMIT_VERIFY_IP_WINDOW_MS,
+  "verify_ip",
+);
+
+export const verifyWalletRateLimit: RequestHandler = createWalletRateLimiter(
+  store,
+  "verify",
+  config.RATE_LIMIT_VERIFY_WALLET_MAX,
+  config.RATE_LIMIT_VERIFY_WALLET_WINDOW_MS,
+  extractPayerFromPaymentHeader,
+  "verify_wallet",
+);
+
+export const publishIpRateLimit: RequestHandler = createIpRateLimiter(
+  store,
+  "publish",
+  config.RATE_LIMIT_PUBLISH_IP_MAX,
+  config.RATE_LIMIT_PUBLISH_IP_WINDOW_MS,
+  "publish_ip",
+);
+
+export const publishWalletRateLimit: RequestHandler = createWalletRateLimiter(
+  store,
+  "publish",
+  config.RATE_LIMIT_PUBLISH_WALLET_MAX,
+  config.RATE_LIMIT_PUBLISH_WALLET_WINDOW_MS,
+  (req) => req.publisher?.walletAddress,
+  "publish_wallet",
+);
+
+export const publishPublisherRateLimit: RequestHandler = createPublisherRateLimiter(
+  store,
+  "publish",
+  config.RATE_LIMIT_PUBLISH_PUBLISHER_MAX,
+  config.RATE_LIMIT_PUBLISH_PUBLISHER_WINDOW_MS,
+  "publish_publisher",
+);
